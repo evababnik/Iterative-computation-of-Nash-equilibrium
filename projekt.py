@@ -18,6 +18,7 @@ def zaporedje_u(matrika, stevilo_iteracij):
         v = v + a_j
         k = k + 1
     return(u , v)
+#print(np.array(zaporedje_u(matrika, stevilo_iteracij)))
 
 def vrednost_igre(matrika, stevilo_iteracij):
     [u, v] = zaporedje_u(matrika, stevilo_iteracij)
@@ -26,7 +27,7 @@ def vrednost_igre(matrika, stevilo_iteracij):
     return(vrednost, vrednost_2)
     
 
-print(vrednost_igre(matrika, stevilo_iteracij))
+#print(vrednost_igre(matrika, stevilo_iteracij))
 
 #2. iterativni algoritem, ki vrne vrednost matrice igre in Nashevo 
 # ravnovesje v obliki vektorja Z = [x_1, ...., x_n, y_1, ..., y_m, v]
@@ -39,10 +40,13 @@ def generiraj_zacetni_vektor(m,n):
     y_0 = np.random.random(n)
     y_0 /= y_0.sum()
     v = np.random.randint(low=0, high=20, size=1, dtype=int)
-    Z = [x_0, y_0, v]
+    x_0 = x_0.tolist()
+    y_0 = y_0.tolist()
+    v = v.tolist()
+    Z = [*x_0, *y_0, *v]
     return(Z)
 
-#print(generiraj_zacetni_vektor(4,5))
+print(generiraj_zacetni_vektor(4,5))
 def sestavi_vektorje_A_i(m,n, i, matrika):
     if i >= 1 and i <= n:
         A_i = []
@@ -62,6 +66,24 @@ def sestavi_vektorje_A_i(m,n, i, matrika):
         A_i.append(1)
     return(A_i)
 
-print(sestavi_vektorje_A_i(3, 2, 2, matrika))
-#def iteracija2(m,n, max_stevilo_iteracij):
-  #  A_i = np.array
+#print(sestavi_vektorje_A_i(3, 2, 2, matrika))
+def iteracija2(m,n, max_stevilo_iteracij, matrika):
+    Z = np.array(generiraj_zacetni_vektor(m, n))
+    produkt_a_z = []
+    for i in range(m+n):
+        A_i = np.array(sestavi_vektorje_A_i(m,n,i,matrika))
+        a_i_krat_z = np.dot(A_i, Z)
+        produkt_a_z.append(a_i_krat_z)
+    if all(elem >= 0 for elem in produkt_a_z):
+        return(Z)
+    else:
+
+
+#m = 3
+#n = 2
+#a = np.array(sestavi_vektorje_A_i(m, n, 2, matrika))
+#b = np.array(generiraj_zacetni_vektor(m,n)) 
+#print(np.dot(a,b))
+print(iteracija2(3, 2, 2, matrika))
+
+    
