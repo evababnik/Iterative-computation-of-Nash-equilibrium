@@ -7,58 +7,10 @@ import scipy
 from scipy.optimize import minimize
 from sympy import Nor
 import time
+from scipy.optimize import linprog
 
-matrika11 = np.array([[4, 3], [2, 4], [5, 2]])
-matrika = np.array([[0, -1, -2, 0, 0, 2, 1], [1, 0, 0, 4, 0, 0, -1], [2, 0, 0 , -1, 1, 0, -1], [0, -4, 1, 0, 0, -1, 1], [0, 0, -1, 0 , 0, -3, 1], [-2, 0, 0, 1, 3, 0, -1], [-1, 1, 1, -1, - 1, 1, 0]])
-
-#1. iterativni algoritem, ki vrne vrednost matrične igre
-
-def zaporedje_u(matrika, stevilo_iteracij):
-    m = matrika.shape[0]
-    n = matrika.shape[1]
-    u = [abs(np.random.randint(low=np.min(matrika), high=np.max(matrika), size=1, dtype=int))]* n
-    v = [abs(np.random.randint(low=np.min(matrika), high=np.max(matrika), size=1, dtype=int))] * m
-    u = np.array(u)
-    v = np.array(v)
-    k=0
-    for k in range(stevilo_iteracij):
-        j = np.argmin(u)
-        i = np.argmax(v)
-        a_i = (matrika[i, 0:n])
-        a_j = matrika[0:m, j]
-        u = u + a_i
-        v = v + a_j
-        k = k + 1
-    return(u , v)
-
-
-def vrednost_igre(matrika, stevilo_iteracij):
-    [u, v] = zaporedje_u(matrika, stevilo_iteracij)
-   # seznam_vrednosti = []
-    #for k in range(stevilo_iteracij):
-    vrednost = np.min(u) / stevilo_iteracij
-    vrednost_2 = np.max(v) / stevilo_iteracij
-    povprecje =(vrednost + vrednost_2 ) / 2
-       # seznam_vrednosti.append(povprecje)
-    #with open("iteracija1_matrika1_15000.txt", 'w', encoding='utf-8') as izhodna:
-      #  izhodna.write("{}\n".format(seznam_vrednosti))
-    return(vrednost, vrednost_2, povprecje)
-
- 
-def analiza1(matrika, stevilo_iteracij):
-    korak = 1
-    seznam_vrednosti = []
-    while korak < stevilo_iteracij:
-        seznam_vrednosti.append(vrednost_igre(matrika, korak)[2])
-        korak += 1
-        
-    with open("iteracija1_matrika1_15000_1.txt", 'w', encoding='utf-8') as izhodna:
-            izhodna.write("{}\n".format(seznam_vrednosti))
-    return(seznam_vrednosti)
-
-
-#2. iterativni algoritem, ki vrne vrednost matrice igre in Nashevo 
-# ravnovesje v obliki vektorja Z = [x_1, ...., x_n, y_1, ..., y_m, v]
+#1. iterativni algoritem, ki vrne vrednost matrične igre in optimalno strategijo 
+# v obliki vektorja Z = [x_1, ...., x_n, y_1, ..., y_m, v]
 
 #generiramo vektor Z, ki ustreza dolocenim pogojem:
 
@@ -70,8 +22,6 @@ def generiraj_zacetni_vektor(m,n, matrika):
     x_0 = [1 / m ] * m
     y_0 = [1 / n] * n
     v = abs(np.random.randint(low=np.min(matrika), high=np.max(matrika), size=1, dtype=int))
-    #x_0 = x_0.tolist()
-    #y_0 = y_0.tolist()
     v = v.tolist()
     Z = [*x_0, *y_0, *v]
     return(Z)
@@ -111,18 +61,23 @@ def sestavi_vektor_A_0_i(m,n, i):
         A_0_i.append(0)
     return(A_0_i)
 
-def iteracija2(stevilo_iteracij, matrika):
+def iteracija1(stevilo_iteracij, matrika):
+    pravi_Z = np.array(resitev_LP(matrika))
+    
     m = matrika.shape[0]
     n = matrika.shape[1]
-    #vrednosti = []
     Z = np.array(generiraj_zacetni_vektor(m, n, matrika))
     korak = 0
-    razlika = 10
-    
+    napaka = []
+    vrednosti = []
+    cas = []
+    start = time.time()
     while korak < (stevilo_iteracij):
-        prejsni_Z = Z
+       
+        vrednosti.append(Z[-1])
+        napaka.append(max(abs(pravi_Z - Z))) 
+        
         produkt_a_z = []
-       # vrednosti.append(Z[-1])
         for i in range(m + n):
             A_i = np.array(sestavi_vektor_A_i(m,n,i,matrika))
             a_i_krat_z = np.dot(A_i, Z)
@@ -143,18 +98,15 @@ def iteracija2(stevilo_iteracij, matrika):
                 alfa = np.dot(-Z1, B_j_k) / ((1 - cos_theta_jk ** 2))
                 beta = b_0_j_k - np.dot((Z1 + alfa * B_j_k),B_0_j_k)
                 zacasni_Z1  = Z1 + alfa * B_j_k + beta * B_0_j_k
-               # b_j_k = 1 / sqrt(np.dot(A_j_k, A_j_k))
-            
-                zacasni_Z = zacasni_Z1.tolist()
                 zacasni_Z = zacasni_Z1.tolist()
                 zacasni_x = zacasni_Z[0:m]
                 zacasni_y = zacasni_Z[m:(m+n)]
                 zacasni_v = zacasni_Z[-1]
-            
                 if all(elem >= 0 for elem in zacasni_Z[0:m]):
                     Z = zacasni_Z
                     korak = korak + 1
-                    
+                    end = time.time()
+                    cas.append(end-start)
                 else:
                     korak = korak + 1
                     i = 0
@@ -200,7 +152,8 @@ def iteracija2(stevilo_iteracij, matrika):
                         if i not in seznam_indeksov_negativnih_komponent_x:
                             Z[i] = zacasni_x[i] + vsota_nicelnih_x / (m - r_plus_s)
                     Z[-1] = zacasni_v
-                vsota1 = sum(Z[0:m])
+                    end = time.time()
+                    cas.append(end-start)
                
                 
                 
@@ -224,7 +177,8 @@ def iteracija2(stevilo_iteracij, matrika):
                 if all(elem >= 0 for elem in zacasni_Z[m:(m+n)]):
                     Z = zacasni_Z
                     korak = korak + 1
-                    
+                    end = time.time()
+                    cas.append(end-start)
                 else:
                     korak = korak + 1
                     i = m
@@ -273,15 +227,18 @@ def iteracija2(stevilo_iteracij, matrika):
                         if i not in seznam_indeksov_negativnih_komponent_x:
                             Z[i] = zacasni_Z[i] + vsota_nicelnih_x / (m - r_plus_s)
                     Z[-1] = zacasni_v
-                vsota1 = sum(Z[m:(m+n)])
-               
-               
+                    end = time.time()
+                    cas.append(end-start)
+                
+    #with open("iteracija1_matrika0_napake.txt", 'w', encoding='utf-8') as izhodna:
+       # izhodna.write("{}\n".format(napaka))         
+    #with open("iteracija1_matrika0_100_vrednosti.txt", 'w', encoding='utf-8') as izhodna:
+        #izhodna.write("{}\n".format(vrednosti))
+    with open("iteracija1_matrika0_100_cas.txt", 'w', encoding='utf-8') as izhodna:
+        izhodna.write("{}\n".format(cas))
+    return(Z)  
 
-    with open("iteracija2_matrika1_15000.txt", 'w', encoding='utf-8') as izhodna:
-        izhodna.write("{}\n".format(vrednosti))
-    
-    return(Z)   
-## 3. metoda, vrne X, Y in vrednost igre -brownova statistična metoda
+## 2. metoda, vrne X, Y in vrednost igre - Brownova statistična metoda
 
 def iteracija_brown(matrika, stevilo_iteracij):
     m = matrika.shape[0]
@@ -327,41 +284,116 @@ def iteracija_brown(matrika, stevilo_iteracij):
     Q = vsota2 / (stevilo_iteracij + 1)
     vred = (vred1 + vred2) / 2
 
-    return(P,Q, vred, vred1, vred2)
+    return([P,Q, vred, vred1, vred2])
 
 
+#linearni program za računanje rešitve matrične igre
 
-#funckiji za merjenje časa
-def zmeri_cas(matrika, stevilo_iteracij, algoritem):
-    vrednosti = []
-    casi = []
-    if algoritem == 1:
-        for ponovitve in range(10):
-            start1 = time.time()
-            vrednost = vrednost_igre(matrika, stevilo_iteracij)[-1]
-            end1 = time.time()
-            cas = end1 - start1
-            vrednosti.append(vrednost)
-            casi.append(cas)
-    else:
-        for ponovitve in range(10):
-            start2 = time.time()
-            vrednost = iteracija2(stevilo_iteracij, matrika)[-1]
-            end2 = time.time()
-            cas = (end2 - start2)
-            vrednosti.append(vrednost)
-            casi.append(cas)
-            #print(vrednost)
-  
-    vred = mean(vrednosti)
+def resitev_LP(matrika):
+    n = matrika.shape[0]
+    m = matrika.shape[1]
+    C = [1] * n # coefficients of the linear objective function vector
+    A = []  #inequality constraints matrix
+    for j in range(m):
+        A_j = matrika[0:n, j] 
+        A_j = A_j.tolist()
+        A_j =  [element * (-1) for element in A_j]
+        A.append(A_j)
+    
+    for i in range(n):
+        nicle = [0] * n
+        nicle[i] = -1
+        A.append(nicle)
 
-    t = mean(casi)
-    return(t, vred)
+    A = np.array(A)
+    B1 = [-1] * m
+    B2 = [0] * n
+    B = np.array([*B1, *B2])   #inequality constraints vector
+
+    resitev = linprog(C, A_ub=A, b_ub=B)
+    p_i = resitev.x
+    X = p_i * (1 / resitev.fun)
+
+    CY = [-1] * m
+    AY = []
+    for i in range(n):
+        A_i = matrika[i, 0:m]
+        A_i = A_i.tolist()
+        AY.append(A_i)
+
+    BY = [1] * n
+    meje = [(0,1)]
+    resitev2 = linprog(c = CY, A_ub = AY, b_ub = BY, bounds=meje)
+    
+    q_i = resitev2.x
+    Y = q_i * (1 / resitev2.fun) * (-1)
+    vrednost = 1 / sum(resitev.x)
+    Y = Y.tolist()
+    X = X.tolist()
+    Z = [*X, *Y, vrednost]
+    return(Z)
+        
+### Analiza konvergence
+
+def analiza2(matrika, stevilo_iteracij):
+    korak = 1
+    seznam_povp_vrednosti = []
+    seznam_sp_vrednosti = []
+    seznam_zg_vrednosti = []
+    pravi_z = np.array(resitev_LP(matrika))
+    napaka = []
+    cas = [0]
+    while max(cas) < 0.5:
+        cas_vmesni = []
+        X_vmesni = []
+        Y_vmesni = []
+        povp_vr_vmesni = []
+        sp_vr_vmesni = []
+        zg_vr_vmesni = []
+        
+        start = time.time()
+        resitev = np.array(iteracija_brown(matrika, korak))
+        end = time.time()
+        cas_vmesni.append(end-start)
+        X_vmesni.append(resitev[0].tolist())
+        Y_vmesni.append(resitev[1].tolist())
+        
+        povp_vr_vmesni.append(resitev[2])
+        sp_vr_vmesni.append(resitev[3])
+        zg_vr_vmesni.append(resitev[4])
+        
+        cas.append(mean(cas_vmesni))
+        X = [sum(x)/len(x) for x in zip(*X_vmesni)]
+        Y = [sum(x)/len(x) for x in zip(*Y_vmesni)]
+        
+        povp_vr = mean(povp_vr_vmesni)
+        sp_vr = mean(sp_vr_vmesni)
+        zg_vr = mean(zg_vr_vmesni)
+        
+        Z = np.array([*X, *Y, sp_vr])
+        a =max(abs(Z-pravi_Z))
+        napaka.append(max(abs(Z-pravi_Z)))
+        seznam_povp_vrednosti.append(povp_vr)
+        seznam_sp_vrednosti.append(sp_vr)
+        seznam_zg_vrednosti.append(zg_vr)
+        korak += 1
+        
+    #with open("iteracija_brown_matrika1_15000_povp.txt", 'w', encoding='utf-8') as izhodna:
+           # izhodna.write("{}\n".format(seznam_povp_vrednosti))
+    #with open("iteracija_brown_matrika0_100.txt", 'w', encoding='utf-8') as izhodna:
+           # izhodna.write("{}\n".format(seznam_sp_vrednosti))
+   # with open("iteracija_brown_matrika1_15000_zg.txt", 'w', encoding='utf-8') as izhodna:
+           # izhodna.write("{}\n".format(seznam_zg_vrednosti))
+    with open("iteracija_brown_matrika0_napaka_0.5.txt", 'w', encoding='utf-8') as izhodna:
+        izhodna.write("{}\n".format(napaka))
+    with open("iteracija_brown_matrika0_cas_0.5.txt", 'w', encoding='utf-8') as izhodna:
+        izhodna.write("{}\n".format(cas))
+    return(korak)
 
 
+matrika2 = np.array([[0, -1, -2, 0, 0, 2, 1], [1, 0, 0, 4, 0, 0, -1], [2, 0, 0 , -1, 1, 0, -1], [0, -4, 1, 0, 0, -1, 1], [0, 0, -1, 0 , 0, -3, 1], [-2, 0, 0, 1, 3, 0, -1], [-1, 1, 1, -1, - 1, 1, 0]])
+matrika1= np.array([[4, 3], [2, 4], [5, 2]])
 
-#print(zmeri_cas(matrika11,1000,1))
-#print(zmeri_cas(matrika, 1,2))
-#print(zmeri_cas(matrika, 5<00, 2))
-#print(iteracija_brown(matrika, 15000))
-#print(iteracija2(100, matrika))
+
+#matrika21 = np.array([[5, 2, 9, 4, 10, 8 , 6],[4, 2, 2, 4, 3, 4 , 7], [3, 2, 3,8, 10, 4 , 2],[5, 3, 3, 4, 10, 4 , 3],[8, 2, 3, 4, 11, 7, 3],[4, 2, 4, 2, 8, 4 , 4],[3, 4, 3, 3, 9, 5 , 3]])
+
